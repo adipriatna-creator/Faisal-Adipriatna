@@ -1,0 +1,6 @@
+{
+  "name": "RENDER VIDEO (Real-time)",
+  "description": "Aplikasi profesional untuk render video musik real-time dengan 50 model equalizer audio-reactive, 30 animasi partikel, logo overlay, dan ekspor video berkualitas tinggi.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
