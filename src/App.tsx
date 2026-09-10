@@ -35,9 +35,6 @@ export default function App() {
   // Selected interactive element on canvas
   const [selectedElement, setSelectedElement] = useState<'equalizer' | 'logo' | null>(null);
 
-  // Demo loading state
-  const [isLoadingDemo, setIsLoadingDemo] = useState(false);
-
   // Export Modal State
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -131,9 +128,7 @@ export default function App() {
 
   // Play / Pause Toggle
   const handleTogglePlay = async () => {
-    if (!settings.audioUrl && !settings.videoUrl) {
-      // Auto-load demo if user presses play without files
-      await handleLoadDemo();
+    if (!settings.audioUrl && !settings.videoUrl && !settings.imageUrl) {
       return;
     }
 
@@ -204,14 +199,25 @@ export default function App() {
     }));
   };
 
-  // Reset Project
+  // Reset Project: Kembalikan secara otomatis ke tampilan awal
   const handleResetProject = () => {
-    if (confirm('Apakah Anda yakin ingin mereset seluruh pengaturan proyek ke default?')) {
-      handleStop();
-      setSettings(DEFAULT_PROJECT_SETTINGS);
-      setCurrentPreset('R&B');
-      setSelectedElement(null);
+    handleStop();
+    setSettings(DEFAULT_PROJECT_SETTINGS);
+    setCurrentPreset('R&B');
+    setSelectedElement(null);
+    setAudioWaveform([]);
+    setCurrentTime(0);
+    setIsPlaying(false);
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.src = '';
     }
+    exportBgImageRef.current = null;
+    setIsExportOpen(false);
+    setIsExporting(false);
+    setExportCompleted(false);
+    setExportDownloadUrl(null);
+    setExportError(null);
   };
 
   // Reset Equalizer Transform
@@ -237,126 +243,6 @@ export default function App() {
         opacity: 0.9,
       },
     });
-  };
-
-  // Load Procedural Demo Project (Real Video + Real Audio + Logo)
-  const handleLoadDemo = async () => {
-    setIsLoadingDemo(true);
-    handleStop();
-
-    try {
-      // 1. Generate Synth EDM Demo Audio (20 seconds)
-      const audioBlob = await globalAudioEngine.generateSynthDemoAudio(20);
-      const audioUrl = URL.createObjectURL(audioBlob);
-
-      // 2. Generate a procedural visual video clip via canvas stream
-      const demoCanvas = document.createElement('canvas');
-      demoCanvas.width = 1280;
-      demoCanvas.height = 720;
-      const dCtx = demoCanvas.getContext('2d')!;
-
-      const stream = demoCanvas.captureStream(30);
-      let mediaRec: MediaRecorder;
-      let mime = 'video/webm';
-      if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
-        mime = 'video/webm;codecs=vp9';
-      }
-
-      mediaRec = new MediaRecorder(stream, { mimeType: mime });
-      const videoChunks: Blob[] = [];
-      mediaRec.ondataavailable = (e) => {
-        if (e.data.size > 0) videoChunks.push(e.data);
-      };
-
-      const videoPromise = new Promise<string>((resolve) => {
-        mediaRec.onstop = () => {
-          const vBlob = new Blob(videoChunks, { type: mime });
-          resolve(URL.createObjectURL(vBlob));
-        };
-      });
-
-      mediaRec.start();
-
-      // Render 6 seconds of animated cosmic tunnel
-      const frames = 30 * 6;
-      for (let f = 0; f < frames; f++) {
-        const t = f / 30;
-        // Background gradient
-        const bgGrad = dCtx.createRadialGradient(640, 360, 50, 640, 360, 700);
-        bgGrad.addColorStop(0, '#1e1b4b');
-        bgGrad.addColorStop(0.5, '#0f172a');
-        bgGrad.addColorStop(1, '#020617');
-        dCtx.fillStyle = bgGrad;
-        dCtx.fillRect(0, 0, 1280, 720);
-
-        // Animated neon tunnel rings
-        for (let r = 0; r < 8; r++) {
-          const ringProgress = ((r / 8) + t * 0.4) % 1;
-          const rad = ringProgress * 450;
-          dCtx.strokeStyle = `hsl(${(r * 40 + t * 80) % 360}, 90%, 65%)`;
-          dCtx.lineWidth = 3 + ringProgress * 4;
-          dCtx.beginPath();
-          dCtx.arc(640, 360, Math.max(5, rad), 0, Math.PI * 2);
-          dCtx.stroke();
-        }
-
-        // Geometric star burst
-        dCtx.fillStyle = '#ffffff';
-        for (let s = 0; s < 40; s++) {
-          const a = s * 0.4 + t;
-          const dist = 50 + (s * 15 + t * 100) % 500;
-          dCtx.beginPath();
-          dCtx.arc(640 + Math.cos(a) * dist, 360 + Math.sin(a) * dist, 1.5 + (dist / 150), 0, Math.PI * 2);
-          dCtx.fill();
-        }
-
-        await new Promise((r) => setTimeout(r, 12));
-      }
-
-      mediaRec.stop();
-      const videoUrl = await videoPromise;
-
-      // 3. Generate a demo SVG logo as PNG data URL
-      const logoSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
-        <defs>
-          <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#ec4899" />
-            <stop offset="50%" stop-color="#8b5cf6" />
-            <stop offset="100%" stop-color="#3b82f6" />
-          </linearGradient>
-        </defs>
-        <circle cx="100" cy="100" r="90" fill="rgba(15,23,42,0.85)" stroke="url(#grad)" stroke-width="8"/>
-        <path d="M70 65 L145 100 L70 135 Z" fill="url(#grad)"/>
-      </svg>`;
-      const logoBlob = new Blob([logoSvg], { type: 'image/svg+xml' });
-      const logoUrl = URL.createObjectURL(logoBlob);
-
-      setSettings((prev) => ({
-        ...prev,
-        videoUrl,
-        videoName: 'demo-music-video.mp4',
-        videoDuration: 20,
-        videoWidth: 1280,
-        videoHeight: 720,
-        audioUrl,
-        audioName: 'synth-groove-demo.wav',
-        audioDuration: 20,
-        logoUrl,
-        logoName: 'brand-logo.png',
-        pulseEnabled: true,
-        pulseIntensity: 50,
-        animationEnabled: true,
-      }));
-
-      // Autoplay demo once loaded
-      setTimeout(() => {
-        handleTogglePlay();
-      }, 500);
-    } catch (err) {
-      console.error('Error generating demo:', err);
-    } finally {
-      setIsLoadingDemo(false);
-    }
   };
 
   // Validation before export
@@ -396,6 +282,10 @@ export default function App() {
     }
 
     try {
+      // Ensure audio context is fully unlocked and ready
+      await globalAudioEngine.play().catch(() => {});
+      globalAudioEngine.pause();
+
       const audioEl = globalAudioEngine.getAudioElement();
       const audioTrack = globalAudioEngine.getMediaStreamTrack();
 
@@ -522,10 +412,28 @@ export default function App() {
         },
       });
 
+      const exportFilename = `MusicVideo-${settings.resolution}-${Date.now()}.${result.format}`;
       setExportDownloadUrl(result.url);
-      setExportDownloadFilename(`MusicVideo-${settings.resolution}-${Date.now()}.${result.format}`);
+      setExportDownloadFilename(exportFilename);
       setExportCompleted(true);
       setIsExporting(false);
+      setExportProgress(100);
+
+      // Otomatis langsung simpan ke perangkat pengguna saat 100%
+      try {
+        const downloadLink = document.createElement('a');
+        downloadLink.href = result.url;
+        downloadLink.download = exportFilename;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        setTimeout(() => {
+          if (document.body.contains(downloadLink)) {
+            document.body.removeChild(downloadLink);
+          }
+        }, 300);
+      } catch (autoSaveErr) {
+        console.warn('Auto-save trigger error:', autoSaveErr);
+      }
     } catch (err: any) {
       console.error('Export failed:', err);
       setExportError(err?.message || 'Terjadi kesalahan saat mengekspor video');
@@ -555,9 +463,7 @@ export default function App() {
       <Header
         currentPreset={currentPreset}
         onSelectPreset={handleSelectPreset}
-        onLoadDemo={handleLoadDemo}
         onReset={handleResetProject}
-        isLoadingDemo={isLoadingDemo}
         hasMedia={Boolean(settings.videoUrl || settings.imageUrl || settings.audioUrl)}
       />
 
@@ -622,7 +528,12 @@ export default function App() {
       {/* Export Modal Dialog */}
       <ExportModal
         isOpen={isExportOpen}
-        onClose={() => setIsExportOpen(false)}
+        onClose={() => {
+          setIsExportOpen(false);
+          setExportCompleted(false);
+          setExportProgress(0);
+          setExportStatusText('');
+        }}
         onStartExport={handleStartExport}
         onCancelExport={handleCancelExport}
         isExporting={isExporting}

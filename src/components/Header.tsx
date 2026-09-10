@@ -1,24 +1,19 @@
 import React from 'react';
 import { PRESETS } from '../constants';
 import { PresetConfig } from '../types';
-import { Sparkles, RotateCcw, PlayCircle, Film, Radio, Music2 } from 'lucide-react';
+import { Sparkles, RotateCcw, Film } from 'lucide-react';
 
 interface HeaderProps {
   currentPreset: string;
   onSelectPreset: (preset: PresetConfig) => void;
-  onLoadDemo: () => void;
   onReset: () => void;
-  isLoadingDemo: boolean;
   hasMedia: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   currentPreset,
   onSelectPreset,
-  onLoadDemo,
   onReset,
-  isLoadingDemo,
-  hasMedia,
 }) => {
   return (
     <header className="h-16 border-b border-gray-800 bg-[#0d1017]/90 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between z-30 shrink-0">
@@ -37,6 +32,9 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           <p className="text-[11px] text-gray-400 hidden sm:block">
             Studio Pembuat Video Musik Audio-Reactive
+          </p>
+          <p className="text-[10px] text-indigo-300 font-semibold tracking-wide">
+            Created By: FAISAL ADI PRIATNA
           </p>
         </div>
       </div>
@@ -66,29 +64,15 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Right Actions */}
+      {/* Right Actions: Mode Reset (Kembali ke tampilan awal) */}
       <div className="flex items-center gap-2.5">
         <button
-          onClick={onLoadDemo}
-          disabled={isLoadingDemo}
-          title="Muat contoh video & musik untuk pengujian instan"
-          className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/30 hover:border-emerald-500/50 transition-all disabled:opacity-50 cursor-pointer"
-        >
-          {isLoadingDemo ? (
-            <div className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <PlayCircle className="w-4 h-4 text-emerald-400" />
-          )}
-          <span>{isLoadingDemo ? 'Membuat Demo...' : 'Demo Proyek'}</span>
-        </button>
-
-        <button
           onClick={onReset}
-          title="Reset semua pengaturan proyek ke default"
-          className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-xl text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all cursor-pointer"
+          title="Reset proyek dan kembali ke tampilan awal"
+          className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-gray-800/80 hover:bg-rose-500/20 text-gray-300 hover:text-rose-300 border border-gray-700/80 hover:border-rose-500/40 transition-all cursor-pointer shadow-sm active:scale-95"
         >
-          <RotateCcw className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Reset</span>
+          <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
+          <span>Reset Proyek</span>
         </button>
       </div>
     </header>

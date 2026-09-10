@@ -19,6 +19,43 @@ export interface VideoExportOptions {
   onProgress: ExportProgressCallback;
 }
 
+/**
+ * Helper to get best supported mimeType and extension
+ */
+function getBestSupportedMimeType(format: 'mp4' | 'webm'): { mimeType: string; extension: string } {
+  if (typeof MediaRecorder === 'undefined') {
+    return { mimeType: '', extension: format };
+  }
+
+  if (format === 'mp4') {
+    const mp4Types = [
+      'video/mp4;codecs=avc1,mp4a.40.2',
+      'video/mp4;codecs=avc1',
+      'video/mp4',
+    ];
+    for (const t of mp4Types) {
+      if (MediaRecorder.isTypeSupported(t)) {
+        return { mimeType: t, extension: 'mp4' };
+      }
+    }
+  }
+
+  const webmTypes = [
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm;codecs=vp9',
+    'video/webm;codecs=vp8',
+    'video/webm',
+  ];
+  for (const t of webmTypes) {
+    if (MediaRecorder.isTypeSupported(t)) {
+      return { mimeType: t, extension: 'webm' };
+    }
+  }
+
+  return { mimeType: '', extension: format };
+}
+
 export class VideoExporter {
   private isCancelled = false;
   private recorder: MediaRecorder | null = null;
@@ -58,75 +95,60 @@ export class VideoExporter {
       throw new Error('Durasi video tidak valid');
     }
 
-    onProgress(1, 'Menyiapkan canvas & enkoder video...');
+    onProgress(2, 'Menyiapkan canvas & media perekaman...');
 
-    // 1. Setup Offscreen Canvas with optimized 2D context
+    // 1. Offscreen canvas
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
-    const ctx = canvas.getContext('2d', {
-      alpha: false,
-      desynchronized: true,
-    });
+    const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) throw new Error('Gagal menginisialisasi canvas rendering');
 
-    // 2. Select optimal mimeType and file extension
-    let mimeType = 'video/webm';
-    let fileExtension = 'webm';
-
-    if (format === 'mp4') {
-      if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('video/mp4;codecs=avc1,mp4a.40.2')) {
-        mimeType = 'video/mp4;codecs=avc1,mp4a.40.2';
-        fileExtension = 'mp4';
-      } else if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('video/mp4')) {
-        mimeType = 'video/mp4';
-        fileExtension = 'mp4';
-      } else if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
-        mimeType = 'video/webm;codecs=vp9,opus';
-        fileExtension = 'webm';
-      } else if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
-        mimeType = 'video/webm;codecs=vp8,opus';
-        fileExtension = 'webm';
-      }
-    } else {
-      if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
-        mimeType = 'video/webm;codecs=vp9,opus';
-        fileExtension = 'webm';
-      } else if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
-        mimeType = 'video/webm;codecs=vp8,opus';
-        fileExtension = 'webm';
-      }
+    // 2. Render initial frame immediately so stream has active pixels
+    try {
+      renderFrame(ctx, width, height, 0);
+    } catch (e) {
+      console.warn('First frame paint error:', e);
     }
 
-    // 3. Setup Canvas Stream & Combined Media Tracks
+    // 3. Determine best supported mime type
+    const { mimeType, extension } = getBestSupportedMimeType(format);
+
+    // 4. Capture canvas stream
     const canvasStream = canvas.captureStream(fps);
     const combinedTracks: MediaStreamTrack[] = [...canvasStream.getVideoTracks()];
 
-    if (audioStreamTrack) {
+    if (audioStreamTrack && audioStreamTrack.readyState === 'live') {
       combinedTracks.push(audioStreamTrack);
     }
 
     const outputStream = new MediaStream(combinedTracks);
 
-    // Balanced bitrate to avoid hardware encoder stutter while maintaining high visual clarity
+    // Dynamic bitrate calculation (balanced for performance and crystal clarity)
     const pixelCount = width * height;
-    let targetBitrate = 5000000; // 5 Mbps default (smooth for 720p / 1080p)
+    let targetBitrate = 5000000;
     if (pixelCount >= 1920 * 1080) {
-      targetBitrate = 6500000; // 6.5 Mbps for full HD
+      targetBitrate = 6500000;
     } else if (pixelCount <= 854 * 480) {
-      targetBitrate = 2500000; // 2.5 Mbps for 480p
+      targetBitrate = 2500000;
     }
 
     const chunks: Blob[] = [];
     let recorder: MediaRecorder;
     try {
-      recorder = new MediaRecorder(outputStream, {
-        mimeType,
-        videoBitsPerSecond: targetBitrate,
-      });
+      const optionsObj: MediaRecorderOptions = { videoBitsPerSecond: targetBitrate };
+      if (mimeType) {
+        optionsObj.mimeType = mimeType;
+      }
+      recorder = new MediaRecorder(outputStream, optionsObj);
     } catch {
-      // Fallback without bitrate or mimeType constraints if browser is strict
-      recorder = new MediaRecorder(outputStream);
+      try {
+        // Fallback without bitrate
+        recorder = mimeType ? new MediaRecorder(outputStream, { mimeType }) : new MediaRecorder(outputStream);
+      } catch {
+        // Ultimate fallback with canvas stream only
+        recorder = new MediaRecorder(canvasStream);
+      }
     }
     this.recorder = recorder;
 
@@ -149,14 +171,14 @@ export class VideoExporter {
         }
 
         onProgress(99, 'Mengemas file video final...');
-        const finalBlob = new Blob(chunks, { type: mimeType });
+        const finalBlob = new Blob(chunks, { type: mimeType || 'video/webm' });
         const downloadUrl = URL.createObjectURL(finalBlob);
         onProgress(100, 'RENDER SELESAI');
 
         resolve({
           blob: finalBlob,
           url: downloadUrl,
-          format: fileExtension,
+          format: extension,
         });
       };
 
@@ -168,30 +190,32 @@ export class VideoExporter {
         reject(err);
       };
 
-      // 4. Synchronize Playback and Smooth Render Loop
+      // 5. Start Playback and Non-Blocking Render Loop
       const startPlaybackAndRecord = async () => {
         try {
-          // Prepare background video element if available
-          if (videoElement) {
+          // Play background video if valid and loaded
+          if (videoElement && videoElement.readyState >= 1) {
             videoElement.currentTime = 0;
             videoElement.muted = true;
             try {
               await videoElement.play();
             } catch {
-              // Ignore background autoplay restriction if any
+              // Ignore background autoplay restriction
             }
           }
 
-          // Prepare main audio playback
-          audioElement.currentTime = 0;
-          try {
-            await audioElement.play();
-          } catch (e) {
-            console.warn('Audio play notice during export:', e);
+          // Reset audio playback to start
+          if (audioElement && audioElement.src) {
+            audioElement.currentTime = 0;
+            try {
+              await audioElement.play();
+            } catch (e) {
+              console.warn('Audio auto-play during export:', e);
+            }
           }
 
-          // Start recorder with 500ms chunk intervals for stable memory usage
-          recorder.start(500);
+          // Start recorder with 350ms chunk intervals
+          recorder.start(350);
 
           const startTime = performance.now();
           const frameInterval = 1000 / fps;
@@ -201,35 +225,48 @@ export class VideoExporter {
           const loop = (now: number) => {
             if (this.isCancelled) return;
 
+            // Absolute elapsed time from wall clock (never gets stuck)
             const elapsedSec = (now - startTime) / 1000;
-            const currentAudioTime = audioElement.currentTime || elapsedSec;
+            const currentAudioTime = Math.min(
+              duration,
+              Math.max(elapsedSec, audioElement ? audioElement.currentTime || 0 : 0)
+            );
 
-            // Frame rate cadence regulation to guarantee smooth playback without stutter
+            // Frame cadence throttling to eliminate judder
             const timeSinceLastFrame = now - lastFrameTime;
             if (timeSinceLastFrame >= frameInterval - 3) {
               lastFrameTime = now - (timeSinceLastFrame % frameInterval);
 
-              // Render composite frame smoothly
-              renderFrame(ctx, width, height, currentAudioTime);
+              // Render composite frame safely
+              try {
+                renderFrame(ctx, width, height, currentAudioTime);
+              } catch (err) {
+                console.warn('Render frame catch:', err);
+              }
             }
 
-            // Throttle progress updates to ~4 times per second to prevent UI thread lock
-            if (now - lastProgressUpdate > 250) {
+            // Progress guaranteed to advance smoothly
+            const progress = Math.min(99, Math.max(2, Math.floor((currentAudioTime / duration) * 99)));
+            if (now - lastProgressUpdate > 200) {
               lastProgressUpdate = now;
-              const progress = Math.min(98, Math.max(1, Math.floor((currentAudioTime / duration) * 98)));
               onProgress(
                 progress,
-                `Merekam video lancar: ${currentAudioTime.toFixed(1)}s / ${duration.toFixed(1)}s (${progress}%)`
+                `Mengekspor video: ${currentAudioTime.toFixed(1)}s / ${duration.toFixed(1)}s (${progress}%)`
               );
             }
 
-            // Check if export duration has been reached
-            if (currentAudioTime >= duration || elapsedSec >= duration + 0.3) {
-              audioElement.pause();
-              if (videoElement) {
-                videoElement.pause();
+            // Check if full duration reached
+            if (elapsedSec >= duration || currentAudioTime >= duration) {
+              try {
+                if (audioElement) audioElement.pause();
+                if (videoElement) videoElement.pause();
+              } catch {
+                // Ignore pause error
               }
-              recorder.stop();
+
+              if (recorder.state !== 'inactive') {
+                recorder.stop();
+              }
             } else {
               this.animFrameId = requestAnimationFrame(loop);
             }

@@ -108,7 +108,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               ))}
             </ul>
             <p className="text-[11px] text-gray-400 pt-1">
-              Tips: Anda dapat mengklik tombol <strong>Demo Proyek</strong> di header atas untuk menguji coba ekspor secara instan tanpa perlu mencari file sendiri.
+              Silakan unggah file audio dan video atau foto Anda pada panel kontrol sebelah kiri untuk memulai ekspor video.
             </p>
           </div>
         )}
@@ -239,10 +239,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             </div>
 
             <h4 className="font-bold text-lg text-emerald-400 font-['Space_Grotesk']">
-              RENDER SELESAI
+              RENDER SELESAI (100%)
             </h4>
-            <p className="text-xs text-gray-300">
-              Video musik audio-reactive berhasil dikompilasi dan siap diunduh ke perangkat Anda.
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl py-2 px-3 text-xs text-emerald-300 font-medium">
+              ✓ File video telah otomatis tersimpan ke folder Unduhan perangkat Anda!
+            </div>
+            <p className="text-xs text-gray-400">
+              Jika unduhan otomatis diblokir oleh browser, klik tombol di bawah ini untuk mengunduh ulang.
             </p>
 
             {/* Preview of rendered video */}
@@ -250,15 +253,26 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               <video src={downloadUrl} controls className="w-full h-full object-contain" />
             </div>
 
-            {/* DOWNLOAD BUTTON */}
-            <a
-              href={downloadUrl}
-              download={downloadFilename}
-              className="inline-flex items-center justify-center gap-2.5 w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/30 transition-all cursor-pointer transform active:scale-[0.99]"
-            >
-              <Download className="w-4 h-4" />
-              <span>DOWNLOAD VIDEO ({downloadFilename})</span>
-            </a>
+            {/* ACTION BUTTONS: Unduh Ulang & SELESAI */}
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <a
+                href={downloadUrl}
+                download={downloadFilename}
+                className="inline-flex items-center justify-center gap-2 flex-1 py-3 px-4 rounded-xl bg-gray-800/90 hover:bg-gray-700 text-gray-200 hover:text-white font-semibold text-xs border border-gray-700 transition-all cursor-pointer shadow-sm"
+              >
+                <Download className="w-4 h-4 text-emerald-400" />
+                <span>Unduh Ulang Video</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex items-center justify-center gap-2 flex-1 py-3 px-6 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs tracking-wider uppercase shadow-lg shadow-emerald-600/30 transition-all cursor-pointer transform active:scale-[0.98]"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>SELESAI</span>
+              </button>
+            </div>
           </div>
         )}
 
