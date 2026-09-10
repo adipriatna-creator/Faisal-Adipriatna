@@ -64,13 +64,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
       <div
-        className="relative w-full max-w-lg bg-[#11141f] border border-gray-800 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-6"
+        className={`relative w-full ${
+          isCompleted ? 'max-w-3xl lg:max-w-4xl' : 'max-w-lg'
+        } max-h-[92vh] flex flex-col bg-[#11141f] border border-gray-800 rounded-3xl shadow-2xl overflow-hidden transition-all duration-300`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-800/80 pb-4">
+        <div className="flex items-center justify-between border-b border-gray-800/80 px-6 py-4 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
               <Film className="w-5 h-5" />
@@ -95,6 +97,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           )}
         </div>
 
+        {/* Scrollable Modal Content */}
+        <div className="overflow-y-auto p-5 sm:p-6 space-y-5 flex-1 scrollbar-thin">
         {/* Validation Errors State */}
         {!canExport && !isCompleted && !isExporting && (
           <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 text-xs space-y-2">
@@ -171,26 +175,28 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         )}
 
         {/* Export Specification Summary */}
-        <div className="bg-black/30 rounded-2xl p-4 border border-gray-800/80 grid grid-cols-2 gap-3 text-xs">
-          <div>
-            <span className="text-gray-500 block text-[11px]">Resolusi Output</span>
-            <span className="text-white font-semibold">{resInfo.label} ({resInfo.width}x{resInfo.height})</span>
+        {!isCompleted && (
+          <div className="bg-black/30 rounded-2xl p-4 border border-gray-800/80 grid grid-cols-2 gap-3 text-xs">
+            <div>
+              <span className="text-gray-500 block text-[11px]">Resolusi Output</span>
+              <span className="text-white font-semibold">{resInfo.label} ({resInfo.width}x{resInfo.height})</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block text-[11px]">Rasio Layar</span>
+              <span className="text-white font-semibold">{aspectInfo.label} ({aspectInfo.desc})</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block text-[11px]">Format File</span>
+              <span className="text-indigo-400 font-bold uppercase">{settings.exportFormat}</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block text-[11px]">Durasi Video Final</span>
+              <span className="text-emerald-400 font-bold">
+                {currentDurationSeconds} Detik
+              </span>
+            </div>
           </div>
-          <div>
-            <span className="text-gray-500 block text-[11px]">Rasio Layar</span>
-            <span className="text-white font-semibold">{aspectInfo.label} ({aspectInfo.desc})</span>
-          </div>
-          <div>
-            <span className="text-gray-500 block text-[11px]">Format File</span>
-            <span className="text-indigo-400 font-bold uppercase">{settings.exportFormat}</span>
-          </div>
-          <div>
-            <span className="text-gray-500 block text-[11px]">Durasi Video Final</span>
-            <span className="text-emerald-400 font-bold">
-              {currentDurationSeconds} Detik
-            </span>
-          </div>
-        </div>
+        )}
 
         {/* Render Progress State */}
         {isExporting && (
@@ -231,47 +237,87 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           </div>
         )}
 
-        {/* Completed State */}
+        {/* Completed State (Tampilan Lebar, Rapi, Terlihat Jelas Semua & Bisa Di-scroll) */}
         {isCompleted && downloadUrl && (
-          <div className="space-y-4 bg-emerald-950/20 border border-emerald-500/30 rounded-2xl p-5 text-center">
-            <div className="w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto mb-2">
-              <CheckCircle2 className="w-6 h-6" />
-            </div>
+          <div className="bg-emerald-950/20 border border-emerald-500/30 rounded-2xl p-4 sm:p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-center">
+              {/* Sisi Kiri: Video Preview */}
+              <div className="space-y-2">
+                <div className="rounded-xl overflow-hidden border border-gray-800 bg-black aspect-video w-full flex items-center justify-center shadow-inner">
+                  <video
+                    src={downloadUrl}
+                    controls
+                    playsInline
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-gray-400 px-1 font-mono">
+                  <span className="truncate max-w-[200px]" title={downloadFilename}>
+                    {downloadFilename}
+                  </span>
+                  <span className="text-emerald-400 font-bold uppercase">
+                    {resInfo.width}x{resInfo.height}
+                  </span>
+                </div>
+              </div>
 
-            <h4 className="font-bold text-lg text-emerald-400 font-['Space_Grotesk']">
-              RENDER SELESAI (100%)
-            </h4>
-            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl py-2 px-3 text-xs text-emerald-300 font-medium">
-              ✓ File video telah otomatis tersimpan ke folder Unduhan perangkat Anda!
-            </div>
-            <p className="text-xs text-gray-400">
-              Jika unduhan otomatis diblokir oleh browser, klik tombol di bawah ini untuk mengunduh ulang.
-            </p>
+              {/* Sisi Kanan: Status & Tombol Aksi */}
+              <div className="space-y-3.5 text-left flex flex-col justify-between">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-semibold mb-2">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>RENDER SELESAI (100%)</span>
+                  </div>
+                  <h4 className="font-bold text-lg text-white font-['Space_Grotesk']">
+                    Video Siap Digunakan
+                  </h4>
+                </div>
 
-            {/* Preview of rendered video */}
-            <div className="rounded-xl overflow-hidden border border-gray-800 bg-black aspect-video max-h-48 mx-auto">
-              <video src={downloadUrl} controls className="w-full h-full object-contain" />
-            </div>
+                <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl py-2 px-3 text-xs text-emerald-300 font-medium leading-relaxed">
+                  ✓ File video telah otomatis tersimpan ke folder Unduhan perangkat Anda!
+                </div>
 
-            {/* ACTION BUTTONS: Unduh Ulang & SELESAI */}
-            <div className="flex flex-col sm:flex-row gap-3 pt-2">
-              <a
-                href={downloadUrl}
-                download={downloadFilename}
-                className="inline-flex items-center justify-center gap-2 flex-1 py-3 px-4 rounded-xl bg-gray-800/90 hover:bg-gray-700 text-gray-200 hover:text-white font-semibold text-xs border border-gray-700 transition-all cursor-pointer shadow-sm"
-              >
-                <Download className="w-4 h-4 text-emerald-400" />
-                <span>Unduh Ulang Video</span>
-              </a>
+                <p className="text-[11px] text-gray-400 leading-normal">
+                  Jika unduhan otomatis diblokir oleh browser, klik tombol <strong>Unduh Ulang Video</strong> di bawah ini.
+                </p>
 
-              <button
-                type="button"
-                onClick={onClose}
-                className="inline-flex items-center justify-center gap-2 flex-1 py-3 px-6 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs tracking-wider uppercase shadow-lg shadow-emerald-600/30 transition-all cursor-pointer transform active:scale-[0.98]"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>SELESAI</span>
-              </button>
+                {/* Spesifikasi Ringkas */}
+                <div className="grid grid-cols-3 gap-2 bg-black/30 p-2.5 rounded-xl border border-gray-800 text-[11px]">
+                  <div>
+                    <span className="text-gray-500 block text-[10px]">Format</span>
+                    <span className="font-bold text-indigo-400 uppercase">{settings.exportFormat}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block text-[10px]">Rasio</span>
+                    <span className="font-medium text-gray-300">{aspectInfo.label}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block text-[10px]">Durasi</span>
+                    <span className="font-bold text-emerald-400">{currentDurationSeconds}s</span>
+                  </div>
+                </div>
+
+                {/* ACTION BUTTONS: Unduh Ulang & SELESAI */}
+                <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
+                  <a
+                    href={downloadUrl}
+                    download={downloadFilename}
+                    className="inline-flex items-center justify-center gap-2 flex-1 py-3 px-3.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 hover:text-white font-semibold text-xs border border-gray-700 transition-all cursor-pointer shadow-sm active:scale-95 text-center"
+                  >
+                    <Download className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Unduh Ulang Video</span>
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="inline-flex items-center justify-center gap-2 flex-1 py-3 px-5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs tracking-wider uppercase shadow-lg shadow-emerald-600/30 transition-all cursor-pointer transform active:scale-95"
+                  >
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>SELESAI</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -295,6 +341,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             </button>
           </div>
         )}
+        </div>
       </div>
     </div>
   );
